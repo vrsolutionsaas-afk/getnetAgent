@@ -1,5 +1,6 @@
 """Conexao com o vector store pgvector (via langchain-postgres)."""
 
+import logging
 from functools import lru_cache
 
 from langchain_openai import OpenAIEmbeddings
@@ -7,8 +8,29 @@ from langchain_postgres import PGVector
 
 from app.config import obter_config
 
+logger = logging.getLogger(__name__)
+
 # Nome da colecao (tabela logica) onde ficam os embeddings da base Getnet
 NOME_COLECAO = "getnet_knowledge"
+
+
+def garantir_extensao_vector() -> None:
+    """Garante que a extensao pgvector exista no banco.
+
+    No docker-compose a extensao ja e criada pelo init.sql, mas em provedores
+    gerenciados (ex.: Railway) precisamos cria-la em runtime. Best-effort.
+    """
+    import psycopg
+
+    config = obter_config()
+    # psycopg.connect usa o schema padrao 'postgresql://' (sem o +psycopg do SQLAlchemy)
+    dsn = config.url_postgres.replace("postgresql+psycopg://", "postgresql://")
+    try:
+        with psycopg.connect(dsn, autocommit=True) as conexao:
+            conexao.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        logger.info("Extensao pgvector garantida.")
+    except Exception as exc:  # noqa: BLE001 - best-effort
+        logger.warning("Nao foi possivel garantir a extensao pgvector: %s", exc)
 
 
 @lru_cache

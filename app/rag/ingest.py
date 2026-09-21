@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from app.rag.vectorstore import obter_vectorstore
+from app.rag.vectorstore import garantir_extensao_vector, obter_vectorstore
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +75,8 @@ def executar_ingestao(urls: list[str] | None = None) -> int:
     """Executa o pipeline completo de ingestao. Retorna o numero de chunks inseridos."""
     urls = urls or URLS_GETNET
     logger.info("Iniciando ingestao de %d URLs", len(urls))
+
+    garantir_extensao_vector()
 
     documentos = _baixar_paginas(urls)
     if not documentos:

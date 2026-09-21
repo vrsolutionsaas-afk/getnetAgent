@@ -19,6 +19,9 @@ class Configuracao(BaseSettings):
     tavily_api_key: str = ""
 
     # Banco de dados (pgvector)
+    # Em producao (Railway) basta definir DATABASE_URL; ele tem prioridade sobre
+    # os campos POSTGRES_* usados no docker-compose/local.
+    database_url: str = ""
     postgres_user: str = "getnet"
     postgres_password: str = "getnet"
     postgres_db: str = "getnet_rag"
@@ -39,7 +42,19 @@ class Configuracao(BaseSettings):
 
     @property
     def url_postgres(self) -> str:
-        """URL de conexao no formato aceito pelo langchain-postgres (psycopg3)."""
+        """URL de conexao no formato aceito pelo langchain-postgres (psycopg3).
+
+        Se DATABASE_URL estiver definida (ex.: Railway), normaliza o schema para
+        'postgresql+psycopg://'. Caso contrario, monta a URL a partir dos campos
+        POSTGRES_* (docker-compose / local).
+        """
+        if self.database_url:
+            url = self.database_url
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+psycopg://", 1)
+            elif url.startswith("postgresql://"):
+                url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+            return url
         return (
             f"postgresql+psycopg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
