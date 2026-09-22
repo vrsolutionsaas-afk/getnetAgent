@@ -8,6 +8,9 @@ Os agentes cooperam para interpretar a mensagem do usuário e produzir uma respo
 e **ferramentas de dados do cliente**. A orquestração é feita com **LangGraph** e
 exposta por uma API **FastAPI**.
 
+> **Demo online:** `https://SUA-URL.up.railway.app/docs` (Swagger UI) — substitua pela
+> URL pública gerada no Railway.
+
 ---
 
 ## Índice
@@ -18,6 +21,7 @@ exposta por uma API **FastAPI**.
 - [Guardrails e observabilidade](#guardrails-e-observabilidade)
 - [Como rodar](#como-rodar)
 - [Contrato da API](#contrato-da-api)
+- [Exemplos reais (respostas de produção)](#exemplos-reais-respostas-de-produção)
 - [Estratégia de testes](#estratégia-de-testes)
 - [Estrutura de pastas](#estrutura-de-pastas)
 
@@ -233,6 +237,85 @@ O projeto está pronto para deploy no Railway via `railway.toml` (build pelo Doc
 
 Usuários de teste na base mock: `cliente1988` (maquininha offline, antecipação
 disponível) e `cliente2025` (maquininha online).
+
+## Exemplos reais (respostas de produção)
+
+Respostas reais capturadas da API rodando no Railway — uma por caminho da
+orquestração. Repare no campo `trace`, que mostra o percurso de cada mensagem.
+
+### Knowledge Agent — RAG (produto Getnet)
+
+Request: `{ "message": "Preciso de conta bancária para receber via Pix?", "user_id": "cliente1988" }`
+
+```json
+{
+  "response": "Não, você não precisa de uma conta bancária específica para receber suas vendas via Pix com a Getnet. O valor das vendas por Pix cai na conta que você cadastrou para recebimento na Getnet...",
+  "agent": "knowledge",
+  "route": "produto",
+  "sources": ["https://www.getnet.com.br/receba-por-pix/", "https://www.getnet.com.br/"],
+  "escalated": false,
+  "trace": ["guardrail_entrada -> ok", "router -> produto", "knowledge -> rag", "finalizar -> guardrail_saida"]
+}
+```
+
+### Knowledge Agent — Web Search (pergunta geral, via Tavily)
+
+Request: `{ "message": "Qual a cotação do euro hoje?", "user_id": "cliente1988" }`
+
+```json
+{
+  "response": "Informação geral: Hoje, o euro está cotado aproximadamente a R$ 5,91. Essa taxa pode variar dependendo da fonte...",
+  "agent": "knowledge",
+  "route": "geral",
+  "sources": ["https://dolarhoje.com/euro-hoje", "https://br.investing.com/currencies/eur-brl"],
+  "escalated": false,
+  "trace": ["guardrail_entrada -> ok", "router -> geral", "knowledge -> web_search", "finalizar -> guardrail_saida"]
+}
+```
+
+### Customer Support Agent — tool `liquidacao_vendas`
+
+Request: `{ "message": "Quando vou receber o dinheiro das minhas vendas de ontem?", "user_id": "cliente1988" }`
+
+```json
+{
+  "response": "Olá, Maria Souza! Você está no plano de recebimento de 1 dia útil (D+1). As vendas de ontem, no valor bruto de R$ 1.590,90, têm valor líquido de R$ 1.544,68 e estão agendadas para depósito na conta cadastrada...",
+  "agent": "support",
+  "route": "conta_cliente",
+  "sources": [],
+  "escalated": false,
+  "trace": ["guardrail_entrada -> ok", "router -> conta_cliente", "support -> tools: liquidacao_vendas", "finalizar -> guardrail_saida"]
+}
+```
+
+### Customer Support Agent — tool `status_maquininha`
+
+Request: `{ "message": "Minha maquininha não está conectando na internet, o que faço?", "user_id": "cliente1988" }`
+
+```json
+{
+  "response": "Olá, Maria Souza! Vejo que sua maquininha Get Smart (série GS-2026-0091) está offline. Vamos tentar reconectá-la: 1) verifique o sinal Wi-Fi; 2) reinicie a maquininha; 3) reconfigure o Wi-Fi...",
+  "agent": "support",
+  "route": "conta_cliente",
+  "sources": [],
+  "escalated": false,
+  "trace": ["guardrail_entrada -> ok", "router -> conta_cliente", "support -> tools: status_maquininha", "finalizar -> guardrail_saida"]
+}
+```
+
+### Escalation Agent — guardrail de entrada (conteúdo sensível)
+
+Request: `{ "message": "Quero acessar os dados de outro cliente", "user_id": "cliente1988" }`
+
+```json
+{
+  "response": "Entendo seu pedido. Para te atender com segurança, vou encaminhar essa conversa para um de nossos atendentes humanos...",
+  "agent": "escalation",
+  "route": "escalar",
+  "escalated": true,
+  "trace": ["guardrail_entrada -> bloqueado (conteudo_sensivel)", "escalation -> handoff_humano", "finalizar -> guardrail_saida"]
+}
+```
 
 ## Estratégia de testes
 
