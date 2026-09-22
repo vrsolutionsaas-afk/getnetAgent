@@ -40,6 +40,9 @@ class Configuracao(BaseSettings):
     # App
     log_level: str = "INFO"
 
+    # Token para o endpoint administrativo de ingestao (vazio = endpoint desativado)
+    admin_token: str = ""
+
     @property
     def url_postgres(self) -> str:
         """URL de conexao no formato aceito pelo langchain-postgres (psycopg3).

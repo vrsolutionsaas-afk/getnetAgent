@@ -180,6 +180,23 @@ python -m scripts.run_ingestion
 uvicorn app.main:app --reload
 ```
 
+### Deploy no Railway (opcional, URL pública)
+
+O projeto está pronto para deploy no Railway via `railway.toml` (build pelo Dockerfile).
+
+1. **Banco pgvector**: no projeto Railway, adicione um serviço de banco com a imagem
+   `pgvector/pgvector:pg16` (ou o template pgvector do marketplace) com um volume em
+   `/var/lib/postgresql/data`.
+2. **API**: adicione um serviço a partir do repositório GitHub. O Railway detecta o
+   `railway.toml` e faz o build pelo Dockerfile. A porta é injetada via `PORT`.
+3. **Variáveis** no serviço da API:
+   - `OPENAI_API_KEY`, `TAVILY_API_KEY`
+   - `DATABASE_URL` — referência ao banco pgvector (ex.: `${{Postgres.DATABASE_URL}}`)
+   - `ADMIN_TOKEN` — um token secreto seu (habilita o endpoint de ingestão)
+4. **Ingestão** (uma vez, após o deploy): como não há terminal, chame o endpoint
+   protegido `POST /admin/ingest` com o header `X-Admin-Token: <ADMIN_TOKEN>` — pode
+   ser feito direto pelo Swagger `/docs`. A extensão `vector` é criada automaticamente.
+
 ## Contrato da API
 
 **Request** — `POST /chat`

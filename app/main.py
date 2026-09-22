@@ -2,14 +2,16 @@
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 
+from app.config import obter_config
 from app.graph.builder import construir_grafo
 from app.graph.state import AgentState
 from app.observability.logging import (
     configurar_logging,
     novo_trace_id,
 )
+from app.rag.ingest import executar_ingestao
 from app.schemas import ChatRequest, ChatResponse
 
 configurar_logging()
@@ -29,6 +31,23 @@ app = FastAPI(
 def health() -> dict:
     """Healthcheck simples."""
     return {"status": "ok"}
+
+
+@app.post("/admin/ingest")
+def admin_ingest(x_admin_token: str = Header(default="")) -> dict:
+    """Dispara a ingestao da base de conhecimento (uso administrativo).
+
+    Protegido por token (header X-Admin-Token == ADMIN_TOKEN). Util em ambientes
+    gerenciados (Railway) onde nao ha terminal para rodar o script de ingestao.
+    """
+    config = obter_config()
+    if not config.admin_token:
+        raise HTTPException(status_code=403, detail="Endpoint de ingestao desativado.")
+    if x_admin_token != config.admin_token:
+        raise HTTPException(status_code=401, detail="Token invalido.")
+
+    total = executar_ingestao()
+    return {"status": "ok", "chunks_inseridos": total}
 
 
 @app.post("/chat", response_model=ChatResponse)
