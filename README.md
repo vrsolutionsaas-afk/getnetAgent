@@ -8,8 +8,8 @@ Os agentes cooperam para interpretar a mensagem do usuário e produzir uma respo
 e **ferramentas de dados do cliente**. A orquestração é feita com **LangGraph** e
 exposta por uma API **FastAPI**.
 
-> **Demo online:** `https://SUA-URL.up.railway.app/docs` (Swagger UI) — substitua pela
-> URL pública gerada no Railway.
+> **Demo online:** [https://getnetagent-production.up.railway.app/docs](https://getnetagent-production.up.railway.app/docs)
+> (Swagger UI — teste os cenários direto pelo navegador).
 
 ---
 
