@@ -1,8 +1,12 @@
-"""Pipeline de ingestao do RAG: scrape do site Getnet -> chunk -> embed -> pgvector.
+"""Pipeline de ingestao do RAG: base curada + scrape do site Getnet -> pgvector.
+
+Fonte principal: base de conhecimento CURADA (app/data/getnet_kb.py), pois o site
+oficial e uma SPA em JavaScript com redirects de tracking e nao e extraivel por
+scraping estatico. Fonte complementar (best-effort): scraping das URLs do site.
 
 Fluxo:
-  1. Baixa o HTML de uma lista curada de paginas do site da Getnet.
-  2. Extrai o texto limpo (remove scripts, nav, footer).
+  1. Carrega os documentos curados dos produtos Getnet.
+  2. (Opcional) Baixa o HTML das paginas do site e extrai texto limpo, deduplicado.
   3. Divide em chunks com sobreposicao.
   4. Gera embeddings e armazena no pgvector.
 """
@@ -14,7 +18,12 @@ from bs4 import BeautifulSoup
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from app.rag.vectorstore import garantir_extensao_vector, obter_vectorstore
+from app.data.getnet_kb import DOCUMENTOS_GETNET
+from app.rag.vectorstore import (
+    garantir_extensao_vector,
+    limpar_colecao,
+    obter_vectorstore,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,17 +62,27 @@ def _extrair_texto(html: str) -> str:
 
 
 def _baixar_paginas(urls: list[str]) -> list[Document]:
-    """Baixa cada URL e retorna Documents com o texto e a fonte nos metadados."""
+    """Baixa cada URL e retorna Documents unicos (dedup por conteudo).
+
+    O site redireciona varias URLs para a mesma home; a deduplicacao por conteudo
+    evita poluir o indice com o mesmo texto repetido.
+    """
     documentos: list[Document] = []
+    vistos: set[int] = set()
     with httpx.Client(timeout=30, follow_redirects=True, headers=CABECALHOS) as cliente:
         for url in urls:
             try:
                 resposta = cliente.get(url)
                 resposta.raise_for_status()
                 texto = _extrair_texto(resposta.text)
-                if len(texto) < 200:
+                if len(texto) < 400:
                     logger.warning("Pagina com pouco texto, ignorada: %s", url)
                     continue
+                chave = hash(texto)
+                if chave in vistos:
+                    logger.info("Pagina duplicada (redirect), ignorada: %s", url)
+                    continue
+                vistos.add(chave)
                 documentos.append(Document(page_content=texto, metadata={"source": url}))
                 logger.info("Baixado: %s (%d chars)", url, len(texto))
             except Exception as exc:  # noqa: BLE001 - ingestao best-effort por URL
@@ -71,16 +90,37 @@ def _baixar_paginas(urls: list[str]) -> list[Document]:
     return documentos
 
 
-def executar_ingestao(urls: list[str] | None = None) -> int:
-    """Executa o pipeline completo de ingestao. Retorna o numero de chunks inseridos."""
+def _documentos_curados() -> list[Document]:
+    """Converte a base curada em Documents com a fonte nos metadados."""
+    return [
+        Document(
+            page_content=f"{item['titulo']}\n\n{item['conteudo']}",
+            metadata={"source": item["source"], "titulo": item["titulo"]},
+        )
+        for item in DOCUMENTOS_GETNET
+    ]
+
+
+def executar_ingestao(
+    urls: list[str] | None = None, incluir_web: bool = True
+) -> int:
+    """Executa o pipeline completo de ingestao. Retorna o numero de chunks inseridos.
+
+    Sempre ingere a base curada. Se incluir_web=True, tenta complementar com o
+    scraping das URLs do site (best-effort).
+    """
     urls = urls or URLS_GETNET
-    logger.info("Iniciando ingestao de %d URLs", len(urls))
+    logger.info("Iniciando ingestao (curada + web=%s)", incluir_web)
 
     garantir_extensao_vector()
+    limpar_colecao()
 
-    documentos = _baixar_paginas(urls)
+    documentos = _documentos_curados()
+    if incluir_web:
+        documentos += _baixar_paginas(urls)
+
     if not documentos:
-        logger.error("Nenhum documento baixado. Ingestao abortada.")
+        logger.error("Nenhum documento para ingerir. Ingestao abortada.")
         return 0
 
     divisor = RecursiveCharacterTextSplitter(

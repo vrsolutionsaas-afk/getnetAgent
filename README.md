@@ -96,16 +96,28 @@ Mapeamento dos cenários do desafio:
 
 **Ingestão → Armazenamento → Recuperação → Geração**
 
-1. **Ingestão** (`app/rag/ingest.py`): baixa uma lista curada de páginas do site da
-   Getnet, extrai o texto limpo (BeautifulSoup, removendo nav/script/footer) e divide
-   em chunks de ~1000 caracteres com sobreposição de 150 (`RecursiveCharacterTextSplitter`).
-2. **Armazenamento** (`app/rag/vectorstore.py`): gera embeddings com
-   `text-embedding-3-small` e armazena no **pgvector** (`langchain-postgres`,
-   metadados em JSONB, coleção `getnet_knowledge`).
-3. **Recuperação** (`app/rag/retriever.py`): busca por similaridade com score
-   normalizado e aplica um **limiar** (`RAG_LIMIAR_SIMILARIDADE`). Se nenhum trecho
-   passar, marca como não relevante → o Knowledge Agent usa o **web search** como
-   fallback (evita alucinação quando a base não cobre o tema).
+> **Decisão de arquitetura sobre a fonte de dados:** o site oficial da Getnet é uma
+> SPA renderizada em JavaScript com redirecionamentos de tracking, o que impede a
+> extração de conteúdo útil por scraping estático (todas as URLs caem numa home
+> genérica). Por isso, a **fonte principal do RAG é uma base de conhecimento curada**
+> ([app/data/getnet_kb.py](app/data/getnet_kb.py)), escrita a partir das informações
+> públicas dos produtos Getnet e cobrindo todos os cenários do desafio. O scraper do
+> site permanece no pipeline como **fonte complementar** (best-effort, com
+> deduplicação). O desafio autoriza isso explicitamente (*"please, look for other
+> sources"*).
+
+1. **Ingestão** ([app/rag/ingest.py](app/rag/ingest.py)): carrega os documentos
+   curados e, opcionalmente, faz scraping das páginas do site (BeautifulSoup,
+   removendo nav/script/footer e deduplicando páginas repetidas por redirect).
+   Divide tudo em chunks de ~1000 caracteres com sobreposição de 150.
+2. **Armazenamento** ([app/rag/vectorstore.py](app/rag/vectorstore.py)): gera
+   embeddings com `text-embedding-3-small` e armazena no **pgvector**
+   (`langchain-postgres`, metadados em JSONB, coleção `getnet_knowledge`). A cada
+   ingestão a coleção é recriada (idempotente).
+3. **Recuperação** ([app/rag/retriever.py](app/rag/retriever.py)): busca por
+   similaridade com score normalizado e aplica um **limiar**
+   (`RAG_LIMIAR_SIMILARIDADE`). Se nenhum trecho passar, marca como não relevante →
+   o Knowledge Agent usa o **web search** como fallback (evita alucinação).
 4. **Geração**: o `gpt-4o` responde ancorado **somente** no contexto recuperado,
    citando as fontes (URLs) na resposta.
 

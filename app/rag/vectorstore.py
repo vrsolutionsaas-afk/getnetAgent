@@ -54,3 +54,12 @@ def obter_vectorstore() -> PGVector:
         connection=config.url_postgres,
         use_jsonb=True,
     )
+
+
+def limpar_colecao() -> None:
+    """Remove a colecao existente para tornar a reingestao idempotente (best-effort)."""
+    try:
+        obter_vectorstore().delete_collection()
+        logger.info("Colecao '%s' limpa antes da reingestao.", NOME_COLECAO)
+    except Exception as exc:  # noqa: BLE001 - best-effort
+        logger.warning("Nao foi possivel limpar a colecao: %s", exc)
