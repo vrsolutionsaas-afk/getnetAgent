@@ -20,7 +20,7 @@ class ChatResponse(BaseModel):
         default_factory=list, description="Fontes usadas (URLs do RAG ou web search)."
     )
     escalated: bool = Field(
-        default=False, description="Indica se houve transbordo para humano."
+        default=False, description="Sinaliza bloqueio ou necessidade de revisao humana; nao confirma transferencia ou ticket."
     )
     trace_id: str = Field(..., description="Identificador do trace para observabilidade.")
     trace: list[str] = Field(

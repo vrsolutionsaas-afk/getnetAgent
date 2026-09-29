@@ -1,9 +1,4 @@
-"""Agente 4 (bonus) - Human Escalation: transbordo para atendente humano.
-
-Acionado quando o Router classifica como "escalar" ou quando um guardrail
-detecta conteudo inseguro/sensivel/fora de escopo. Registra o handoff e
-retorna uma mensagem cordial informando o encaminhamento.
-"""
+"""Sinaliza casos para atendimento humano, sem simular transferencia ou ticket."""
 
 import logging
 
@@ -12,19 +7,33 @@ from app.graph.state import AgentState
 logger = logging.getLogger(__name__)
 
 MENSAGEM_TRANSBORDO = (
-    "Entendo seu pedido. Para te atender com seguranca e da melhor forma, vou "
-    "encaminhar essa conversa para um de nossos atendentes humanos, que dara "
-    "continuidade em instantes. Obrigado pela compreensao."
+    "Esse caso precisa de atendimento humano para ser tratado com seguranca. "
+    "Este portal demonstrativo nao transfere conversas nem abre protocolos. "
+    "Procure os canais oficiais de atendimento no site da Getnet. "
+    "Nao envie senhas, codigos de seguranca ou dados completos de cartao aqui."
 )
+
+RESPOSTAS_GUARDRAIL = {
+    "instrucao_maliciosa": (
+        "Nao posso alterar as regras de seguranca nem revelar instrucoes internas. "
+        "Posso ajudar com produtos Getnet ou com as consultas permitidas da sua conta."
+    ),
+    "dados_pessoais": (
+        "Por seguranca, nao compartilhe CPF, numeros completos de cartao ou dados de terceiros. "
+        "Descreva sua duvida sem esses dados; as consultas usam apenas o cliente da sua sessao."
+    ),
+    "mensagem_vazia": "Escreva sua duvida sobre a Getnet para eu poder ajudar.",
+    "mensagem_longa": "Resuma sua duvida em ate 2.500 caracteres, sem dados sensiveis.",
+}
 
 
 def escalation_agent(state: AgentState) -> AgentState:
-    """No do grafo: efetiva o transbordo para humano."""
+    """No do grafo: orienta o cliente e sinaliza a necessidade de revisao."""
     trace = state.get("trace", [])
-    trace.append("escalation -> handoff_humano")
+    trace.append("escalation -> orientacao_sem_transferencia")
 
     logger.info(
-        "handoff_humano",
+        "orientacao_humana",
         extra={
             "trace_id": state.get("trace_id"),
             "etapa": "escalation",
@@ -33,7 +42,7 @@ def escalation_agent(state: AgentState) -> AgentState:
     )
     return {
         **state,
-        "response": MENSAGEM_TRANSBORDO,
+        "response": RESPOSTAS_GUARDRAIL.get(state.get("guardrail_motivo", ""), MENSAGEM_TRANSBORDO),
         "agent": "escalation",
         "sources": [],
         "escalated": True,

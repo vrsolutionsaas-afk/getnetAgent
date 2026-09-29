@@ -16,11 +16,22 @@ _REGEX_CONTA = re.compile(
     re.IGNORECASE,
 )
 
+_REGEX_CPF = re.compile(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b")
+_REGEX_CARTAO = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
+_REGEX_SEGREDO = re.compile(
+    r"\b(?:senha|password|token|cvv|codigo de seguranca|código de segurança)\s*[:=]\s*\S+"
+    r"|\b(?:sk-(?:proj-)?|tvly-)[A-Za-z0-9_-]{16,}",
+    re.IGNORECASE,
+)
+
 
 def sanear_saida(resposta: str) -> str:
-    """Aplica saneamento minimo na resposta final (mascara agencia e conta)."""
+    """Mascara identificadores pessoais, credenciais e dados bancarios."""
     if not resposta:
         return resposta
+    resposta = _REGEX_SEGREDO.sub("[credencial protegida]", resposta)
+    resposta = _REGEX_CARTAO.sub("[numero protegido]", resposta)
+    resposta = _REGEX_CPF.sub("[documento protegido]", resposta)
     resposta = _REGEX_AGENCIA.sub("agência **** ", resposta)
     resposta = _REGEX_CONTA.sub("conta cadastrada ", resposta)
     return resposta

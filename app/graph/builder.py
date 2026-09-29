@@ -2,7 +2,7 @@
 
 Fluxo:
     guardrail_entrada -> (bloqueado?) -> escalation
-                      -> router -> (rota) -> knowledge | support | escalation
+                      -> router -> knowledge | support | escalation | atendimento
     <agente> -> finalizar (guardrail de saida) -> FIM
 """
 
@@ -11,6 +11,7 @@ from functools import lru_cache
 
 from langgraph.graph import END, StateGraph
 
+from app.graph.atendimento_agent import RESPOSTAS, atendimento_agent
 from app.graph.escalation_agent import escalation_agent
 from app.graph.knowledge_agent import knowledge_agent
 from app.graph.router_agent import router_agent
@@ -28,7 +29,7 @@ def _no_guardrail_entrada(state: AgentState) -> AgentState:
     trace = state.get("trace", [])
     if resultado.bloqueado:
         trace.append(f"guardrail_entrada -> bloqueado ({resultado.motivo})")
-        return {**state, "route": "escalar", "trace": trace}
+        return {**state, "route": "escalar", "guardrail_motivo": resultado.motivo, "trace": trace}
     trace.append("guardrail_entrada -> ok")
     return {**state, "trace": trace}
 
@@ -53,6 +54,8 @@ def _rota_pos_router(state: AgentState) -> str:
         return "support"
     if rota == "escalar":
         return "escalation"
+    if rota in RESPOSTAS:
+        return "atendimento"
     # "produto" e "geral" sao atendidos pelo knowledge agent
     return "knowledge"
 
@@ -67,6 +70,7 @@ def construir_grafo():
     grafo.add_node("knowledge", knowledge_agent)
     grafo.add_node("support", support_agent)
     grafo.add_node("escalation", escalation_agent)
+    grafo.add_node("atendimento", atendimento_agent)
     grafo.add_node("finalizar", _no_finalizar)
 
     grafo.set_entry_point("guardrail_entrada")
@@ -83,12 +87,14 @@ def construir_grafo():
             "knowledge": "knowledge",
             "support": "support",
             "escalation": "escalation",
+            "atendimento": "atendimento",
         },
     )
 
     grafo.add_edge("knowledge", "finalizar")
     grafo.add_edge("support", "finalizar")
     grafo.add_edge("escalation", "finalizar")
+    grafo.add_edge("atendimento", "finalizar")
     grafo.add_edge("finalizar", END)
 
     return grafo.compile()

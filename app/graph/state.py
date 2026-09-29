@@ -15,7 +15,8 @@ class AgentState(TypedDict, total=False):
     historico: list[dict[str, str]]
 
     # Decisao do Router Agent
-    route: str  # "produto" | "conta_cliente" | "geral" | "escalar"
+    route: str
+    guardrail_motivo: str
 
     # Contexto recuperado (RAG ou web) e resultados de tools
     contexto: str

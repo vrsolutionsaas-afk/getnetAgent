@@ -409,3 +409,36 @@ O backend deve ser atualizado antes de testar o frontend publicado.
 - Não afirmar que a estimativa conservadora de input equivale exatamente aos tokens cobrados pelo provedor.
 - Não fazer deploy ou criar recursos pagos sem autorização explícita.
 - Não versionar `.env`, tokens ou senhas.
+
+## 15. Atualização dos agentes e guardrails (28/09/2026)
+
+Após a publicação do portal, foram observadas respostas inadequadas para "Olá"
+e "Conte até 100": ambas eram encaminhadas para busca web. O fluxo foi ajustado:
+
+- Novas rotas `saudacao`, `encerramento`, `fora_escopo` e `esclarecer`, atendidas
+  localmente pelo nó `atendimento`, sem modelo de geração nem fontes artificiais.
+- Cumprimentos, despedidas e contagens reconhecidos pelas regras determinísticas
+  também dispensam o modelo de roteamento. As demais intenções usam classificação.
+- Falha do roteador pede esclarecimento, em vez de assumir `produto`.
+- Clima, câmbio e notícias continuam permitidos na rota `geral`, preservando o desafio.
+- Guardrails normalizam texto e bloqueiam padrões de instruções maliciosas,
+  CPF/cartão e pedidos de dados de terceiros antes do roteamento.
+- Histórico bloqueado não é reenviado aos modelos. Fontes recuperadas ficam
+  separadas da política de sistema e são tratadas como dados não confiáveis.
+- Fallback de produtos para Tavily é limitado a `getnet.com.br` e subdomínios,
+  com verificação do hostname. Sem evidências, a resposta informa a limitação.
+- Support não publica afirmações de conta sem ferramenta autorizada e dados
+  encontrados. Continua usando a identidade autenticada, nunca a indicada pelo modelo.
+- A conta bancária é retirada do resultado da ferramenta antes do envio ao modelo.
+  O prompt informa que os dados são simulados e que não há operações financeiras.
+- Escalation não promete transferência, protocolo ou atendente em instantes.
+  `escalated` indica bloqueio ou necessidade de revisão, não transferência efetiva.
+- Saída mascara também padrões de CPF, cartão e credenciais.
+
+Validação local desta atualização: **85 passed, 1 skipped**. O teste ignorado
+requer chamadas reais; os demais usam dublês e bancos temporários isolados. Não
+houve acesso ao PostgreSQL de produção nem consumo de OpenAI/Tavily nesta validação.
+Regex e prompts reduzem riscos, mas não garantem proteção absoluta contra prompt
+injection ou erros factuais. Ainda é necessária avaliação das respostas com modelos
+reais. O usuário autorizou o commit e push destas melhorias para a `main`.
+A validação em produção permanece pendente após o deploy do Railway.

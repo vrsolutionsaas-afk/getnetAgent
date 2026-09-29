@@ -41,6 +41,7 @@ POST /chat {message, user_id}
         │
         ├─ produto / geral ──►  Knowledge Agent ──► RAG (pgvector) ou Web (Tavily)
         ├─ conta_cliente   ──►  Support Agent   ──► tools (dados do cliente)
+        ├─ interações simples / fora de escopo ──► Atendimento (sem geração)
         └─ escalar         ──►  Escalation Agent
         │
         ▼
@@ -60,10 +61,11 @@ decidida, contexto recuperado, resultados de tools, resposta, fontes e o `trace`
 
 | Agente | Papel | Mecanismo |
 |--------|-------|-----------|
-| **Router** | Ponto de entrada; classifica a mensagem em `produto`, `conta_cliente`, `geral` ou `escalar` | LLM com saída estruturada + validação determinística |
-| **Knowledge** | Responde sobre produtos/serviços Getnet (RAG) e perguntas gerais (web) | RAG no pgvector; fallback para Tavily quando o RAG não é relevante |
-| **Support** | Atendimento com dados do cliente | 3 tools: `liquidacao_vendas`, `status_maquininha`, `antecipacao_recebiveis` |
-| **Escalation** (bônus) | Handoff para humano | Acionado por guardrail ou rota `escalar` |
+| **Router** | Classifica atendimento, consulta ou necessidade de esclarecimento | Regras para interações simples + LLM com enum de rotas; falha pede esclarecimento |
+| **Atendimento** | Saudações, agradecimentos, fora de escopo e esclarecimentos | Respostas locais sem RAG, web ou modelo de geração |
+| **Knowledge** | Produtos Getnet (RAG) e informações atuais (web) | Fallback de produtos restrito a `getnet.com.br` e subdomínios; clima/câmbio continuam com busca geral |
+| **Support** | Atendimento com dados simulados do cliente autenticado | 3 tools; sem fatos de conta se nenhuma consulta autorizada tiver sucesso |
+| **Escalation** (bônus) | Sinaliza bloqueio ou necessidade de atendimento humano | Não cria tickets nem promete transferência real |
 
 **Princípios de design** (aprendidos em produção):
 - As **tools retornam fatos estruturados**, nunca texto final — o LLM compõe a resposta.
@@ -76,12 +78,15 @@ decidida, contexto recuperado, resultados de tools, resposta, fontes e o `trace`
 
 1. **Guardrail de entrada** (determinístico): bloqueia conteúdo vazio, sensível ou
    inseguro → vai direto ao Escalation Agent.
-2. **Router**: classifica a intenção.
+2. **Router**: classifica a intenção. Cumprimentos, despedidas e pedidos simples de
+  contagem reconhecidos pelas regras locais não chamam o modelo. Em falha de
+  classificação, pede esclarecimento em vez de assumir uma pergunta de produto.
 3. **Agente especializado**:
-   - `produto` → Knowledge (RAG); se o RAG não for relevante, cai no web search.
-   - `geral` → Knowledge (web search direto).
+  - `produto` → Knowledge (RAG); fallback para busca em fontes oficiais Getnet.
+  - `geral` → Knowledge (informações atuais como clima, câmbio e notícias).
    - `conta_cliente` → Support (tools).
    - `escalar` → Escalation.
+  - `saudacao`, `encerramento`, `fora_escopo`, `esclarecer` → Atendimento.
 4. **Guardrail de saída**: mascara dados sensíveis (ex.: conta bancária) que
    possam ter vazado para o texto.
 
@@ -96,6 +101,9 @@ Mapeamento dos cenários do desafio:
 | Maquininha não conecta na internet | conta_cliente | Support | Tool |
 | Como funciona antecipação | produto | Knowledge | RAG |
 | Cotação do euro hoje | geral | Knowledge | Web (Tavily) |
+| Olá | saudacao | Atendimento | Resposta local, sem fontes |
+| Conte até 100 | fora_escopo | Atendimento | Orientação de escopo, sem pesquisa |
+| Obrigado | encerramento | Atendimento | Resposta local |
 
 ## Pipeline RAG
 
@@ -122,7 +130,8 @@ Mapeamento dos cenários do desafio:
 3. **Recuperação** ([app/rag/retriever.py](app/rag/retriever.py)): busca por
    similaridade com score normalizado e aplica um **limiar**
    (`RAG_LIMIAR_SIMILARIDADE`). Se nenhum trecho passar, marca como não relevante →
-   o Knowledge Agent usa o **web search** como fallback (evita alucinação).
+  o Knowledge Agent usa o **web search oficial** como fallback. Sem evidências,
+  informa a limitação em vez de gerar uma resposta sem fontes.
 4. **Geração**: o `gpt-4o` responde ancorado **somente** no contexto recuperado,
    citando as fontes (URLs) na resposta.
 
@@ -134,10 +143,21 @@ python -m scripts.run_ingestion
 
 ## Guardrails e observabilidade
 
-- **Guardrail de entrada** (`app/guardrails/input_guard.py`): regex determinístico
-  para conteúdo sensível/inseguro (senha, fraude, dados de terceiros) → escalonamento.
-- **Guardrail de saída** (`app/guardrails/output_guard.py`): mascara dados de conta
-  bancária que escapem para o texto.
+- **Guardrail de entrada** (`app/guardrails/input_guard.py`): normaliza texto e
+  bloqueia padrões de conteúdo sensível, CPF/cartão, acesso a terceiros e tentativas
+  comuns de sobrescrever regras. Pedidos explícitos de humano não dependem de LLM.
+- **Guardrail de saída** (`app/guardrails/output_guard.py`): mascara padrões de
+  agência, conta bancária, CPF, cartão e credenciais.
+- **Instruções e fontes**: política em mensagem de sistema separada dos documentos;
+  histórico bloqueado não retorna ao modelo. Busca de produto verifica o hostname
+  oficial; trechos permanecem vinculados às URLs de origem.
+- **Suporte**: identidade vem da sessão; ferramentas desconhecidas são recusadas;
+  conta bancária é retirada antes de enviar os resultados ao modelo. A base é
+  simulada e as ferramentas apenas consultam, não executam operações financeiras.
+- **Limites**: regex e prompts reduzem riscos, mas não garantem detecção de toda
+  tentativa de prompt injection ou informação incorreta. Testes com dublês verificam
+  controle de fluxo; a qualidade linguística e factual exige avaliação com modelos
+  reais e fontes validadas. `escalated=true` não significa que houve transferência.
 - **Observabilidade** (`app/observability/logging.py`): cada request recebe um
   `trace_id`; os logs são **estruturados em JSON** (nível, etapa, trace_id, detalhe).
   A resposta inclui um campo `trace` com os passos percorridos — ótimo para depurar e
