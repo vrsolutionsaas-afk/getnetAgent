@@ -442,3 +442,26 @@ Regex e prompts reduzem riscos, mas não garantem proteção absoluta contra pro
 injection ou erros factuais. Ainda é necessária avaliação das respostas com modelos
 reais. O usuário autorizou o commit e push destas melhorias para a `main`.
 A validação em produção permanece pendente após o deploy do Railway.
+
+## 16. Interface da conversa do cliente
+
+A conversa foi aprimorada em `frontend-next/components/chat.tsx`, com estilos
+isolados em `chat.module.css`, sem alterações nas telas administrativas:
+
+- Cabeçalho compacto, mensagens mais legíveis e identificação do assistente.
+- Atalhos para maquininha, recebimentos, antecipação e produtos Getnet.
+- Histórico em diálogo com busca por título, datas e tentativa de recarregamento.
+- Fontes recolhíveis identificadas pelo domínio; URLs inválidas e duplicadas são
+  descartadas. A cópia da resposta apresenta confirmação temporária.
+- Campo de mensagem expansível, contador, aviso de privacidade e cota disponível.
+- Rolagem preserva a posição de leitura quando chega uma nova resposta; há botão
+  para voltar à última mensagem. Textos longos ficam contidos na área de conversa.
+- Falhas de envio preservam o rascunho. Mensagens pendentes não ficam duplicadas
+  enquanto o histórico é atualizado. Falha ao abrir conversa oferece nova tentativa.
+
+Verificação visual e funcional na prévia local em 1440, 390 e 320 pixels, incluindo
+envio por Enter, histórico, resposta longa, fontes, falha de envio e cota esgotada.
+Foram usados dados temporários e respostas simuladas, sem acesso ao PostgreSQL
+do Railway ou provedores de IA. Lint e build de produção aprovados.
+O usuário autorizou o commit e push destas mudanças de interface para a `main`.
+A validação em produção permanece pendente após o deploy da Vercel.
