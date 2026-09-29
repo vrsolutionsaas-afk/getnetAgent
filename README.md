@@ -153,7 +153,8 @@ python -m scripts.run_ingestion
 
 ```bash
 cp .env.example .env
-# edite .env e preencha OPENAI_API_KEY e TAVILY_API_KEY
+# edite .env e preencha OPENAI_API_KEY, TAVILY_API_KEY,
+# PORTAL_ADMIN_EMAIL e PORTAL_ADMIN_SENHA (12 a 128 caracteres)
 ```
 
 ### 2. Subir com Docker Compose (recomendado)
@@ -163,9 +164,8 @@ docker compose up --build
 ```
 
 Isso sobe o Postgres (pgvector) e a API. Aguarde o banco ficar saudável.
-
-Preencha `PORTAL_ADMIN_EMAIL` e `PORTAL_ADMIN_SENHA` no ambiente (senha de
-12 a 128 caracteres). Inicialize as tabelas e o administrador:
+O container prepara as tabelas e o primeiro administrador antes de iniciar a API.
+Para executar novamente a preparação, se necessário:
 
 ```bash
 docker compose exec api python -m scripts.preparar_portal
@@ -230,6 +230,12 @@ O projeto está pronto para deploy no Railway via `railway.toml` (build pelo Doc
 4. **Ingestão** (uma vez, após o deploy): como não há terminal, chame o endpoint
    protegido `POST /admin/ingest` com o header `X-Admin-Token: <ADMIN_TOKEN>` — pode
    ser feito direto pelo Swagger `/docs`. A extensão `vector` é criada automaticamente.
+
+O `Dockerfile` também executa a preparação antes do Uvicorn, usando a mesma
+conexão de banco da API. Se a preparação falhar, o servidor não inicia. Mantenha
+o **Start Command** do Railway sem override para usar esse comando do container.
+No Railway, deixe `PORTAL_DATABASE_URL` ausente para reutilizar `DATABASE_URL`;
+essa configuração não cria outro banco nem redefine senhas ou cotas existentes.
 
 ## Portal e cotas
 

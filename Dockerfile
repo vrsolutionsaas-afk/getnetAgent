@@ -19,4 +19,4 @@ COPY . .
 EXPOSE 8000
 
 # Shell form para expandir ${PORT} (Railway injeta a porta em runtime; local usa 8000)
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD python -m scripts.preparar_portal && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
