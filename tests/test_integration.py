@@ -14,6 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.portal.autenticacao import usuario_atual
 
 client = TestClient(app)
 
@@ -39,8 +40,9 @@ def test_health():
     assert resp.json()["status"] == "ok"
 
 
-def test_fluxo_escalonamento_por_guardrail():
+def test_fluxo_escalonamento_por_guardrail(monkeypatch):
     """Conteudo sensivel -> guardrail bloqueia -> Escalation Agent. Sem dublês."""
+    monkeypatch.setitem(app.dependency_overrides, usuario_atual, lambda: SimpleNamespace(id="teste", cliente_id="x"))
     resp = client.post(
         "/chat",
         json={"message": "quero clonar o cartao de outro cliente", "user_id": "x"},

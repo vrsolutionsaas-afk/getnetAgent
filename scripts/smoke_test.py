@@ -7,6 +7,7 @@ Uso:
     python -m scripts.smoke_test http://localhost:8000
 """
 
+import os
 import sys
 
 import httpx
@@ -24,14 +25,17 @@ CENARIOS = [
     "Can I sell through WhatsApp using the Payment Link?",
 ]
 
-USER_ID = "cliente1988"
+USER_ID = os.getenv("CHAT_USER_ID", "cliente1988")
 
 
 def main() -> None:
     base = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
     url = f"{base}/chat"
+    token = os.getenv("CHAT_TOKEN", "")
+    if not token:
+        raise SystemExit("Defina CHAT_TOKEN com o token de POST /portal/login.")
 
-    with httpx.Client(timeout=60) as cliente:
+    with httpx.Client(timeout=180, headers={"Authorization": f"Bearer {token}"}) as cliente:
         for i, mensagem in enumerate(CENARIOS, 1):
             print(f"\n{'=' * 70}\n[{i}] {mensagem}")
             try:

@@ -42,6 +42,9 @@ class Configuracao(BaseSettings):
 
     # Token para o endpoint administrativo de ingestao (vazio = endpoint desativado)
     admin_token: str = ""
+    portal_database_url: str = ""
+    portal_admin_email: str = ""
+    portal_admin_senha: str = ""
 
     @property
     def url_postgres(self) -> str:

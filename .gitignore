@@ -13,3 +13,4 @@ __pycache__/
 # Dados locais
 chroma_db/
 *.log
+*.db

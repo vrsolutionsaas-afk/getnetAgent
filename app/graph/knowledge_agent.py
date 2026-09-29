@@ -34,7 +34,9 @@ Pergunta do cliente: {pergunta}"""
 def _responder_com_web(state: AgentState, trace: list[str]) -> AgentState:
     """Responde usando o web search (Tavily)."""
     pergunta = state["message"]
-    resultado = buscar_na_web(pergunta)
+    historico = state.get("historico", [])
+    consulta = "\n".join(mensagem["content"] for mensagem in historico if mensagem["role"] == "user")[-2000:]
+    resultado = buscar_na_web(f"{consulta}\n{pergunta}".strip())
     trace.append("knowledge -> web_search")
 
     if not resultado.sucesso:
@@ -52,7 +54,7 @@ def _responder_com_web(state: AgentState, trace: list[str]) -> AgentState:
 
     llm = llm_geracao()
     resposta = llm.invoke(
-        PROMPT_WEB.format(resultado=resultado.resumo, pergunta=pergunta)
+        [*historico, {"role": "user", "content": PROMPT_WEB.format(resultado=resultado.resumo, pergunta=pergunta)}]
     ).content
     return {
         **state,
@@ -78,12 +80,14 @@ def knowledge_agent(state: AgentState) -> AgentState:
         return _responder_com_web(state, trace)
 
     # Rota "produto": tenta o RAG primeiro
-    resultado_rag = recuperar_contexto(pergunta)
+    historico = state.get("historico", [])
+    consulta = "\n".join(mensagem["content"] for mensagem in historico if mensagem["role"] == "user")[-2000:]
+    resultado_rag = recuperar_contexto(f"{consulta}\n{pergunta}".strip())
     if resultado_rag.relevante:
         trace.append("knowledge -> rag")
         llm = llm_geracao()
         resposta = llm.invoke(
-            PROMPT_RAG.format(contexto=resultado_rag.contexto, pergunta=pergunta)
+            [*historico, {"role": "user", "content": PROMPT_RAG.format(contexto=resultado_rag.contexto, pergunta=pergunta)}]
         ).content
         logger.info(
             "knowledge_rag",

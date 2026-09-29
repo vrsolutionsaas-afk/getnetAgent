@@ -12,6 +12,7 @@ class AgentState(TypedDict, total=False):
     # Entrada
     message: str
     user_id: str
+    historico: list[dict[str, str]]
 
     # Decisao do Router Agent
     route: str  # "produto" | "conta_cliente" | "geral" | "escalar"

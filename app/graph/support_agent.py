@@ -60,6 +60,7 @@ def support_agent(state: AgentState) -> AgentState:
     llm_com_tools = llm_geracao().bind_tools(TOOLS)
     mensagens = [
         {"role": "system", "content": PROMPT_SUPPORT},
+        *state.get("historico", []),
         {"role": "user", "content": mensagem},
     ]
 

@@ -20,6 +20,7 @@ exposta por uma API **FastAPI**.
 - [Pipeline RAG](#pipeline-rag)
 - [Guardrails e observabilidade](#guardrails-e-observabilidade)
 - [Como rodar](#como-rodar)
+- [Portal e cotas](#portal-e-cotas)
 - [Contrato da API](#contrato-da-api)
 - [Exemplos reais (respostas de produção)](#exemplos-reais-respostas-de-produção)
 - [Estratégia de testes](#estratégia-de-testes)
@@ -163,6 +164,15 @@ docker compose up --build
 
 Isso sobe o Postgres (pgvector) e a API. Aguarde o banco ficar saudável.
 
+Preencha `PORTAL_ADMIN_EMAIL` e `PORTAL_ADMIN_SENHA` no ambiente (senha de
+12 a 128 caracteres). Inicialize as tabelas e o administrador:
+
+```bash
+docker compose exec api python -m scripts.preparar_portal
+```
+
+O comando não redefine senhas de usuários existentes. Não há credencial padrão.
+
 ### 3. Indexar a base de conhecimento (uma vez)
 
 ```bash
@@ -172,10 +182,13 @@ docker compose exec api python -m scripts.run_ingestion
 ### 4. Testar
 
 - Swagger UI: http://localhost:8000/docs
+- Faça login em `POST /portal/login` e use o token retornado no botão **Authorize**.
+  O `/chat` exige Bearer token; `user_id` deve corresponder à conta da sessão.
 - Smoke test dos 10 cenários:
 
 ```bash
-docker compose exec api python -m scripts.smoke_test
+# CHAT_TOKEN deve conter o token de login; não o versionar.
+docker compose exec -e CHAT_TOKEN="$CHAT_TOKEN" api python -m scripts.smoke_test
 ```
 
 - Ou via `curl`:
@@ -183,6 +196,7 @@ docker compose exec api python -m scripts.smoke_test
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $CHAT_TOKEN" \
   -d '{"message": "What is the difference between Get Clássica and Get Smart?", "user_id": "cliente1988"}'
 ```
 
@@ -192,6 +206,7 @@ curl -X POST http://localhost:8000/chat \
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 # suba um Postgres com pgvector e ajuste POSTGRES_HOST=localhost no .env
+python -m scripts.preparar_portal
 python -m scripts.run_ingestion
 uvicorn app.main:app --reload
 ```
@@ -209,11 +224,97 @@ O projeto está pronto para deploy no Railway via `railway.toml` (build pelo Doc
    - `OPENAI_API_KEY`, `TAVILY_API_KEY`
    - `DATABASE_URL` — referência ao banco pgvector (ex.: `${{Postgres.DATABASE_URL}}`)
    - `ADMIN_TOKEN` — um token secreto seu (habilita o endpoint de ingestão)
+   - `PORTAL_ADMIN_EMAIL`, `PORTAL_ADMIN_SENHA` — primeiro administrador do portal.
+     O pre-deploy executa `python -m scripts.preparar_portal`. Após a primeira
+     criação, remova a senha inicial das variáveis. Deploys seguintes preservam o admin.
 4. **Ingestão** (uma vez, após o deploy): como não há terminal, chame o endpoint
    protegido `POST /admin/ingest` com o header `X-Admin-Token: <ADMIN_TOKEN>` — pode
    ser feito direto pelo Swagger `/docs`. A extensão `vector` é criada automaticamente.
 
+## Portal e cotas
+
+O frontend Next.js está em [frontend-next](frontend-next). A API e o pgvector
+continuam no Railway; apenas o frontend vai para a Vercel.
+
+### Vercel
+
+1. Importe o mesmo repositório e selecione **Root Directory: `frontend-next`**.
+2. Use o preset **Next.js**, instalação `npm ci` e build `npm run build`.
+3. Configure `GETNET_API_URL=https://getnetagent-production.up.railway.app`,
+   sem `/docs`, e `PORTAL_ORIGIN=https://seu-dominio.vercel.app`, sem barra final.
+   Essas variáveis são exclusivas do servidor, sem prefixo `NEXT_PUBLIC_`.
+4. Publique o backend atualizado antes de testar o login. Entre com o administrador
+   criado no pre-deploy e cadastre os clientes na área **Clientes**.
+
+O proxy aceita somente rotas e métodos do portal. A sessão é um token opaco,
+armazenado como hash no banco e entregue ao navegador por cookie HttpOnly,
+SameSite=Lax e Secure em produção. Sessões expiram em 12 horas; bloquear um
+cliente revoga seus acessos. Operações de escrita validam a origem.
+Há limitação de tentativas de login por conta e endereço remoto. Atrás do proxy
+Next.js, o limite por endereço pode ser compartilhado; para maior escala, use
+também proteção de borda e identificação de IP por proxies confiáveis.
+
+### Execução local
+
+Na pasta `frontend-next`, configure `.env.local` conforme [.env.example](frontend-next/.env.example):
+
+```bash
+npm ci
+npm run dev
+```
+
+A API real precisa estar em execução e com o portal inicializado. Para conferir
+somente a interface, há um servidor de **prévia isolada**:
+
+```bash
+python -m uvicorn tests.portal_preview:app --host 127.0.0.1 --port 8001
+```
+
+Nesse caso use `GETNET_API_URL=http://127.0.0.1:8001`. Contas exclusivas da prévia:
+`admin@getnet.local` e `cliente@getnet.local`, ambas com senha `Preview-local-2026`.
+Essas contas são criadas apenas em banco temporário, não usam OpenAI/Tavily e
+não existem no ambiente real. O módulo de prévia é excluído da imagem Docker.
+A fotografia do login vem do [Unsplash](https://images.unsplash.com/photo-1556742049-0cfed4f6a45d),
+armazenada localmente, sem representar equipamento oficial da Getnet.
+
+### Contabilização e limites
+
+- Cotas mensais de **input e output independentes**, por usuário e globais, com
+  virada no primeiro dia do mês em UTC. Zero bloqueia novas chamadas.
+- Cada chamada de roteamento e geração, inclusive uso de tools, reserva saldo
+  antes de chamar o modelo. As reservas e liquidações usam transações e bloqueio
+  de linha no PostgreSQL, para evitar reutilização do mesmo saldo entre workers.
+- Input é reservado por uma estimativa conservadora: bytes UTF-8 da requisição
+  serializada mais margem de 4.096. Não é uma medição exata de tokens e pode
+  bloquear uma chamada mesmo quando existe algum saldo. A reserva de output é
+  256 tokens no roteador e 1.024 na geração. A garantia desse dimensionamento
+  ainda precisa ser verificada com os modelos e cargas reais utilizados.
+- Ao receber o `usage` do provedor, a reserva é substituída pelo consumo informado.
+  Cache é parte do input, não uma cobrança adicional. Retries automáticos estão
+  desabilitados. Uma conversa pode consumir mais de uma chamada.
+- Falhas sem `usage` mantêm cobrança estimada, visível no BI. Reservas órfãs após
+  queda do processo continuam comprometendo saldo; ainda não há reconciliação
+  automática com o provedor. Reduzir uma cota não apaga consumo anterior.
+- **Embeddings, ingestão e Tavily não entram nessas cotas nem no BI de tokens.**
+  Não há estimativa financeira ou limite de gasto em dólares.
+- O BI apresenta período, input/output/cache, chamadas por modelo e etapa,
+  latência média e últimas 30 chamadas. O CSV exporta apenas essas chamadas recentes.
+- Históricos são isolados por usuário. São enviados até 12 registros anteriores,
+  limitados a 1.500 caracteres cada; não há resumo automático. As contas de cliente
+  continuam vinculadas a dados simulados, não a SSO ou sistemas bancários Getnet.
+
+Validação local: testes com SQLite e provedores simulados, build/lint Next.js e
+fluxos de navegador em desktop e celular. Concorrência em PostgreSQL, chamadas
+pagas reais, Docker e publicação Vercel/Railway precisam de validação no ambiente
+de destino. A criação inicial usa `create_all`; alterações futuras nas tabelas
+exigem migrações próprias. O escalonamento original sinaliza a necessidade de
+um atendente, mas não cria ticket nem aciona uma equipe humana.
+
 ## Contrato da API
+
+Todas as chamadas de chat exigem `Authorization: Bearer <token>`, obtido em
+`POST /portal/login` com `{"email": "...", "senha": "..."}`. O identificador
+do cliente é validado contra a sessão; o portal não confia em IDs fornecidos pelo modelo.
 
 **Request** — `POST /chat`
 

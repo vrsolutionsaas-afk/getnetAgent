@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.graph.llm import llm_roteamento
 from app.graph.state import AgentState
+from app.portal.cotas import CotaExcedida
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +50,13 @@ def router_agent(state: AgentState) -> AgentState:
         decisao: DecisaoRota = llm.invoke(
             [
                 {"role": "system", "content": PROMPT_ROTEAMENTO},
+                *state.get("historico", []),
                 {"role": "user", "content": mensagem},
             ]
         )
         rota = decisao.rota.strip().lower()
+    except CotaExcedida:
+        raise
     except Exception as exc:  # noqa: BLE001 - falha de roteamento cai no fallback
         logger.warning("Falha no roteamento, usando 'produto' como fallback: %s", exc)
         rota = "produto"
