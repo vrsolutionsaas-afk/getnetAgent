@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Arquitetura do assistente Getnet</title>
+  <desc id="desc">O navegador envia a pergunta ao portal Next.js na Vercel. O servidor do portal encaminha a chamada autenticada ao serviço FastAPI e LangGraph no Railway. O serviço consulta PostgreSQL e pgvector, ferramentas com dados simulados, OpenAI e Tavily conforme necessário. A resposta retorna pelo portal. Topologia de implantação prevista.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#536267"/>
+    </marker>
+    <style>
+      text { font-family: 'Segoe UI', sans-serif; fill: #202c30; }
+      .title { font-size: 36px; font-weight: 700; }
+      .heading { font-size: 26px; font-weight: 700; }
+      .label { font-size: 22px; font-weight: 600; }
+      .body { font-size: 20px; }
+      .small { font-size: 18px; fill: #536267; }
+      .line { fill: none; stroke: #536267; stroke-width: 2.5; marker-end: url(#arrow); }
+      .both { marker-start: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1600" height="1000" fill="#ffffff"/>
+  <rect x="48" y="40" width="8" height="64" rx="3" fill="#d52239"/>
+  <text x="76" y="70" class="title">Getnet · Da pergunta à resposta</text>
+  <text x="76" y="105" class="body">Arquitetura de implantação prevista · visão simplificada para apresentação</text>
+
+  <rect x="48" y="220" width="224" height="164" rx="8" fill="#fff4f5" stroke="#e0a4ae"/>
+  <text x="70" y="255" class="label">1. Navegador</text>
+  <text x="70" y="294" class="body">Cliente ou</text>
+  <text x="70" y="322" class="body">administrador</text>
+  <text x="70" y="359" class="small">Pergunta e resposta</text>
+
+  <rect x="352" y="150" width="440" height="236" rx="8" fill="#f5f6f7" stroke="#cbd1d4"/>
+  <text x="376" y="190" class="heading">Vercel</text>
+  <text x="510" y="190" class="body">Hospeda o portal</text>
+  <rect x="376" y="220" width="392" height="140" rx="6" fill="#ffffff" stroke="#cbd1d4"/>
+  <text x="396" y="253" class="label">2. Portal Next.js</text>
+  <text x="396" y="285" class="body">Login, chat, histórico e painel</text>
+  <text x="396" y="316" class="small">Servidor encaminha para a API</text>
+  <text x="396" y="342" class="small">Sessão em cookie HttpOnly</text>
+
+  <rect x="864" y="150" width="688" height="636" rx="8" fill="#f0f7f4" stroke="#a5c8b9"/>
+  <text x="888" y="190" class="heading">Railway</text>
+  <text x="1024" y="190" class="body">Hospeda o atendimento e o banco</text>
+  <rect x="888" y="220" width="640" height="282" rx="6" fill="#ffffff" stroke="#a5c8b9"/>
+  <text x="912" y="253" class="label">3. Serviço de atendimento</text>
+  <text x="912" y="289" class="body">FastAPI · valida sessão e aplica regras do portal</text>
+  <path d="M 912 312 H 1504" stroke="#dae7e0"/>
+  <text x="912" y="349" class="label">LangGraph · coordena os agentes</text>
+  <text x="912" y="383" class="body">Verifica entrada → roteia → consulta → responde</text>
+  <text x="912" y="418" class="small">Produtos · dados da conta · atendimento simples</text>
+  <text x="912" y="447" class="small">Recusa pedidos indevidos ou orienta atendimento humano</text>
+  <text x="912" y="477" class="small">Mascara padrões de dados sensíveis antes de devolver</text>
+
+  <path d="M 272 280 H 376" class="line both"/>
+  <text x="295" y="264" class="small">HTTPS</text>
+  <path d="M 768 280 H 888" class="line both"/>
+  <text x="814" y="264" class="small">API</text>
+
+  <path d="M 1164 502 V 608" class="line both"/>
+  <text x="908" y="549" class="small">Sessão, histórico,</text>
+  <text x="908" y="574" class="small">cotas e consulta RAG</text>
+  <path d="M 1376 502 V 608" class="line both"/>
+  <text x="1208" y="549" class="small">Consulta da conta</text>
+  <text x="1208" y="574" class="small">autenticada</text>
+
+  <rect x="888" y="608" width="304" height="146" rx="6" fill="#ffffff" stroke="#a5c8b9"/>
+  <text x="908" y="641" class="label">PostgreSQL + pgvector</text>
+  <text x="908" y="675" class="body">Dados do portal</text>
+  <text x="908" y="704" class="body">e base de produtos</text>
+  <text x="908" y="734" class="small">Busca por significado</text>
+  <rect x="1224" y="608" width="304" height="146" rx="6" fill="#ffffff" stroke="#a5c8b9"/>
+  <text x="1244" y="641" class="label">Ferramentas de suporte</text>
+  <text x="1244" y="675" class="body">Vendas, maquininha</text>
+  <text x="1244" y="704" class="body">e antecipação</text>
+  <text x="1244" y="734" class="small">Dados simulados</text>
+
+  <rect x="352" y="440" width="440" height="346" rx="8" fill="#eef7fa" stroke="#a3c7d4"/>
+  <text x="376" y="480" class="heading">Serviços externos</text>
+  <rect x="376" y="510" width="392" height="106" rx="6" fill="#ffffff" stroke="#a3c7d4"/>
+  <text x="396" y="542" class="label">OpenAI</text>
+  <text x="396" y="573" class="body">Classificação e respostas</text>
+  <text x="396" y="600" class="small">Embeddings para a busca na base</text>
+  <rect x="376" y="638" width="392" height="124" rx="6" fill="#ffffff" stroke="#a3c7d4"/>
+  <text x="396" y="670" class="label">Tavily</text>
+  <text x="396" y="701" class="body">Pesquisa na web quando necessário</text>
+  <text x="396" y="730" class="small">Informações atuais; para produtos,</text>
+  <text x="396" y="751" class="small">fallback em domínios oficiais Getnet</text>
+  <path d="M 888 425 H 828 V 565 H 768" class="line both"/>
+  <path d="M 828 565 V 699 H 768" class="line"/>
+
+  <rect x="48" y="830" width="1504" height="78" rx="8" fill="#fff4f5"/>
+  <text x="72" y="861" class="label">A resposta volta pelo mesmo caminho: Railway → Vercel → navegador.</text>
+  <text x="72" y="891" class="body">O navegador não consulta diretamente o banco, a OpenAI ou a Tavily neste fluxo do portal.</text>
+  <text x="48" y="947" class="small">As consultas variam conforme a pergunta: nem toda mensagem usa IA, busca na web ou ferramentas de suporte.</text>
+  <text x="48" y="975" class="small">Demonstração: sem acesso bancário real e sem transferência automática para atendentes.</text>
+</svg>

@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowRight, BarChart3, Eye, EyeOff, Gauge, LogOut, Menu, MessageSquare, ShieldCheck, Users, X } from "lucide-react";
+import { ArrowRight, BarChart3, Eye, EyeOff, Gauge, LogOut, Menu, MessageSquare, ShieldCheck, Users, Workflow, X } from "lucide-react";
 import { api, ApiError, failure, type Session } from "@/lib/api";
 import { Brand, ErrorNotice, QuotaBars, Spinner } from "./ui";
 import Chat from "./chat";
 import Admin from "./admin";
+import Architecture from "./architecture";
 
 export default function Portal() {
   const [session, setSession] = useState<Session | null>(null);
@@ -39,7 +40,7 @@ export default function Portal() {
   const admin = session.usuario.perfil === "admin";
   const current = view === "inicio" ? (admin ? "painel" : "chat") : view;
   const nav = [
-    ...(admin ? [{ key: "painel", label: "Visão geral", icon: BarChart3 }, { key: "usuarios", label: "Clientes", icon: Users }, { key: "cotas", label: "Cotas globais", icon: Gauge }] : []),
+    ...(admin ? [{ key: "painel", label: "Visão geral", icon: BarChart3 }, { key: "usuarios", label: "Clientes", icon: Users }, { key: "cotas", label: "Cotas globais", icon: Gauge }, { key: "arquitetura", label: "Arquitetura", icon: Workflow }] : []),
     { key: "chat", label: "Atendimento", icon: MessageSquare },
     { key: "minhas-cotas", label: "Meu consumo", icon: Gauge },
   ];
@@ -55,7 +56,7 @@ export default function Portal() {
     <div className="workspace">
       <header className="topbar"><div className="row"><button className="icon-button mobile-only" title="Menu" aria-label="Abrir menu" onClick={() => setMenu(true)}><Menu size={21} /></button><span>Portal Getnet</span><span className="breadcrumb">/</span><strong>{nav.find(item => item.key === current)?.label}</strong></div><span className="role-label">{admin ? "Administrador" : "Cliente"}</span></header>
       {error && <div className="workspace-error"><ErrorNotice message={error} /></div>}
-      {current === "chat" ? <Chat session={session} refreshSession={refreshSession} /> : current === "minhas-cotas" ? <main className="content"><div className="page-heading"><div><p className="eyebrow">MINHA CONTA</p><h1>Meu consumo</h1><p className="muted">Período mensal · {session.consumo.mes} · UTC</p></div></div><section className="personal-quota"><h2>Tokens disponíveis</h2><QuotaBars quota={session.consumo} /><p className="small muted">Limites de entrada e saída independentes. Renovação no primeiro dia de cada mês.</p><button className="button secondary" onClick={() => refreshSession().catch(error => setError(failure(error)))}>Atualizar consumo</button></section></main> : <Admin key={current} view={current} />}
+      {current === "chat" ? <Chat session={session} refreshSession={refreshSession} /> : current === "minhas-cotas" ? <main className="content"><div className="page-heading"><div><p className="eyebrow">MINHA CONTA</p><h1>Meu consumo</h1><p className="muted">Período mensal · {session.consumo.mes} · UTC</p></div></div><section className="personal-quota"><h2>Tokens disponíveis</h2><QuotaBars quota={session.consumo} /><p className="small muted">Limites de entrada e saída independentes. Renovação no primeiro dia de cada mês.</p><button className="button secondary" onClick={() => refreshSession().catch(error => setError(failure(error)))}>Atualizar consumo</button></section></main> : admin ? (current === "arquitetura" ? <Architecture /> : <Admin key={current} view={current} />) : null}
     </div>
   </div>;
 }

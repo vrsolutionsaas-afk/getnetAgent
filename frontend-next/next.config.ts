@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  outputFileTracingIncludes: {
+    "/api/admin/arquitetura": ["./assets/arquitetura-getnet.png"],
+  },
 };
 
 export default nextConfig;
