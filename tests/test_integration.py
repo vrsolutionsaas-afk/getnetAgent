@@ -40,8 +40,8 @@ def test_health():
     assert resp.json()["status"] == "ok"
 
 
-def test_fluxo_escalonamento_por_guardrail(monkeypatch):
-    """Conteudo sensivel -> guardrail bloqueia -> Escalation Agent. Sem dublês."""
+def test_fluxo_recusa_por_guardrail(monkeypatch):
+    """Conteudo sensivel -> guardrail bloqueia e recusa, sem sinalizar transbordo. Sem dublês."""
     monkeypatch.setitem(app.dependency_overrides, usuario_atual, lambda: SimpleNamespace(id="teste", cliente_id="x"))
     resp = client.post(
         "/chat",
@@ -49,9 +49,10 @@ def test_fluxo_escalonamento_por_guardrail(monkeypatch):
     )
     assert resp.status_code == 200
     dados = resp.json()
-    assert dados["escalated"] is True
+    assert dados["escalated"] is False
     assert dados["agent"] == "escalation"
-    assert dados["route"] == "escalar"
+    assert dados["route"] == "recusar"
+    assert "atendimento humano" not in dados["response"]
 
 
 def test_knowledge_agent_usa_rag(monkeypatch):

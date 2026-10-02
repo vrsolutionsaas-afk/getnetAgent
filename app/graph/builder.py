@@ -29,7 +29,8 @@ def _no_guardrail_entrada(state: AgentState) -> AgentState:
     trace = state.get("trace", [])
     if resultado.bloqueado:
         trace.append(f"guardrail_entrada -> bloqueado ({resultado.motivo})")
-        return {**state, "route": "escalar", "guardrail_motivo": resultado.motivo, "trace": trace}
+        rota = "escalar" if resultado.motivo in {"risco", "atendimento_humano"} else "recusar"
+        return {**state, "route": rota, "guardrail_motivo": resultado.motivo, "trace": trace}
     trace.append("guardrail_entrada -> ok")
     return {**state, "trace": trace}
 
@@ -44,7 +45,7 @@ def _no_finalizar(state: AgentState) -> AgentState:
 
 def _rota_pos_guardrail(state: AgentState) -> str:
     """Se o guardrail bloqueou, vai direto para escalation; senao, roteia."""
-    return "escalation" if state.get("route") == "escalar" else "router"
+    return "escalation" if state.get("guardrail_motivo") or state.get("route") == "escalar" else "router"
 
 
 def _rota_pos_router(state: AgentState) -> str:

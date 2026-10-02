@@ -17,6 +17,11 @@ RESPOSTAS = {
         "Pode detalhar o que voce precisa? E uma duvida sobre um produto Getnet "
         "ou sobre suas vendas e sua maquininha?"
     ),
+    "recusar": (
+        "Nao posso ajudar com esse pedido. Consulto apenas os dados do cliente da sua "
+        "sessao e nao compartilho informacoes internas ou de terceiros. Posso ajudar com "
+        "sua maquininha, suas vendas, antecipacao ou produtos Getnet."
+    ),
 }
 
 

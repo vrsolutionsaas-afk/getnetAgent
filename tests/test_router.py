@@ -14,7 +14,7 @@ from app.portal.cotas import CotaExcedida
 def test_rotas_validas_definidas():
     assert ROTAS_VALIDAS == {
         "produto", "conta_cliente", "geral", "escalar", "saudacao",
-        "encerramento", "fora_escopo", "esclarecer",
+        "encerramento", "fora_escopo", "esclarecer", "recusar",
     }
 
 

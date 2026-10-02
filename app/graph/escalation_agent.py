@@ -22,18 +22,23 @@ RESPOSTAS_GUARDRAIL = {
         "Por seguranca, nao compartilhe CPF, numeros completos de cartao ou dados de terceiros. "
         "Descreva sua duvida sem esses dados; as consultas usam apenas o cliente da sua sessao."
     ),
+    "conteudo_sensivel": (
+        "Nao posso ajudar com esse pedido. Nunca compartilhe senhas, tokens ou codigos de "
+        "seguranca. Posso ajudar com sua maquininha, suas vendas, antecipacao ou produtos Getnet."
+    ),
     "mensagem_vazia": "Escreva sua duvida sobre a Getnet para eu poder ajudar.",
     "mensagem_longa": "Resuma sua duvida em ate 2.500 caracteres, sem dados sensiveis.",
 }
 
 
 def escalation_agent(state: AgentState) -> AgentState:
-    """No do grafo: orienta o cliente e sinaliza a necessidade de revisao."""
+    """No do grafo: recusa bloqueios de seguranca ou orienta atendimento humano."""
     trace = state.get("trace", [])
-    trace.append("escalation -> orientacao_sem_transferencia")
+    recusa = RESPOSTAS_GUARDRAIL.get(state.get("guardrail_motivo", ""))
+    trace.append("escalation -> recusa" if recusa else "escalation -> orientacao_sem_transferencia")
 
     logger.info(
-        "orientacao_humana",
+        "recusa_guardrail" if recusa else "orientacao_humana",
         extra={
             "trace_id": state.get("trace_id"),
             "etapa": "escalation",
@@ -42,9 +47,9 @@ def escalation_agent(state: AgentState) -> AgentState:
     )
     return {
         **state,
-        "response": RESPOSTAS_GUARDRAIL.get(state.get("guardrail_motivo", ""), MENSAGEM_TRANSBORDO),
+        "response": recusa or MENSAGEM_TRANSBORDO,
         "agent": "escalation",
         "sources": [],
-        "escalated": True,
+        "escalated": recusa is None,
         "trace": trace,
     }
